@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ region.name }} STI Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #4a148c;
+      color: white;
+      text-align: center;
+      padding: 30px 0;
+    }
+    section {
+      padding: 20px 40px;
+    }
+    .stats-box {
+      background-color: #ffffff;
+      padding: 20px;
+      margin-top: 20px;
+      border-left: 6px solid #7b1fa2;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 12px;
+      text-align: center;
+    }
+    th {
+      background-color: #e0e0e0;
+    }
+    .filter-form {
+      margin-bottom: 20px;
+    }
+    .filter-form label {
+      margin-right: 10px;
+    }
+    .back-button {
+      display: inline-block;
+      margin-top: 10px;
+      margin-bottom: 20px;
+      background-color: #7b1fa2;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .back-button:hover {
+      background-color: #6a1b9a;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>{{ region.name }} STI Data</h1>
+</header>
+
+<section>
+  <!-- Back to homepage -->
+  <a href="{% url 'home' %}" class="back-button">← Back to Home</a>
+
+  <!-- Filters -->
+  <form method="GET" class="filter-form">
+    <label for="year">Year:</label>
+    <select name="year" id="year" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for year in years %}
+        <option value="{{ year }}" {% if selected_year|stringformat:"s" == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="gender">Gender:</label>
+    <select name="gender" id="gender" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for gender in genders %}
+        <option value="{{ gender.id }}" {% if selected_gender|stringformat:"s" == gender.id|stringformat:"s" %}selected{% endif %}>
+          {{ gender.label }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <label for="age">Age Group:</label>
+    <select name="age" id="age" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for age in age_groups %}
+        <option value="{{ age.id }}" {% if selected_age_group|stringformat:"s" == age.id|stringformat:"s" %}selected{% endif %}>
+          {{ age.group_label }}
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <!-- Region Table -->
+  <div class="stats-box">
+    <h2>📉 {{ region.name }} Summary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>STI</th>
+          <th>Gender</th>
+          <th>Age Group</th>
+          <th>Diagnoses</th>
+          <th>Rate per 100k</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for stat in region_stats %}
+        <tr>
+          <td>{{ stat.year }}</td>
+          <td>{{ stat.sti }}</td>
+          <td>{{ stat.gender_orientation.label }}</td>
+          <td>{{ stat.age_group.group_label }}</td>
+          <td>{{ stat.diagnoses }}</td>
+          <td>{{ stat.rate_per_100k }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6">No data found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Chart 1: Diagnoses over time -->
+  <div class="stats-box">
+    <h2> Genital Warts Diagnoses Over Time</h2>
+    <canvas id="regionChart" width="400" height="200"></canvas>
+  </div>
+
+  <!-- Chart 2: Gender Distribution -->
+  <div class="stats-box">
+    <h2> Gender Distribution</h2>
+    <canvas id="genderChart" width="400" height="200"></canvas>
+  </div>
+
+  <!-- Chart 3: Age Group Distribution -->
+  <div class="stats-box">
+    <h2> Diagnoses by Age Group</h2>
+    <canvas id="ageChart" width="400" height="200"></canvas>
+  </div>
+</section>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Diagnoses Over Time
+  const chartData = {
+    labels: {{ chart_years|safe }},
+    datasets: [{
+      label: 'Diagnoses',
+      data: {{ chart_diagnoses|safe }},
+      borderColor: '#7b1fa2',
+      backgroundColor: 'rgba(123, 31, 162, 0.4)',
+      fill: true,
+      tension: 0.2
+    }]
+  };
+
+  new Chart(document.getElementById('regionChart').getContext('2d'), {
+    type: 'line',
+    data: chartData,
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Year' }},
+        y: { title: { display: true, text: 'Diagnoses' }}
+      }
+    }
+  });
+
+  // Gender Distribution
+  const genderData = {{ gender_chart_data|safe }};
+  new Chart(document.getElementById('genderChart').getContext('2d'), {
+    type: 'pie',
+    data: {
+      labels: genderData.labels,
+      datasets: [{
+        data: genderData.data,
+        backgroundColor: ['#7b1fa2', '#ce93d8', '#ab47bc', '#9575cd', '#ba68c8'],
+        borderColor: '#fff',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+
+  // Age Group Distribution
+  const ageData = {{ age_chart_data|safe }};
+  new Chart(document.getElementById('ageChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ageData.labels,
+      datasets: [{
+        label: 'Diagnoses',
+        data: ageData.data,
+        backgroundColor: 'rgba(255, 143, 0, 0.5)',
+        borderColor: '#ff8f00',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+</script>
+
+</body>
+</html>
